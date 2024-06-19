@@ -612,6 +612,56 @@ pre-push:
 				},
 			},
 		},
+		{
+			name: "with extends and local",
+			global: `
+extends:
+  - global-extend.yml
+
+pre-commit:
+  parallel: true
+  exclude_tags: [linter]
+  commands:
+    global-lint:
+      run: bundle exec rubocop
+      glob: "*.rb"
+      tags: [backend, linter]
+    global-other:
+      run: bundle exec rubocop
+      tags: [other]
+`,
+			local: `
+pre-commit:
+  exclude_tags: [backend]
+`,
+			otherFiles: map[string]string{
+				"global-extend.yml": `
+pre-commit:
+  exclude_tags: [test]
+  commands:
+    extended-tests:
+      run: bundle exec rspec
+      tags: [backend, test]
+`,
+			},
+			result: &Config{
+				SourceDir:      DefaultSourceDir,
+				SourceDirLocal: DefaultSourceDirLocal,
+				Extends:        []string{"global-extend.yml"},
+				Hooks: map[string]*Hook{
+					"pre-commit": {
+						Parallel:    true,
+						ExcludeTags: []string{"backend"},
+						Commands: map[string]*Command{
+							"global-other": {
+								Run:  "bundle exec rubocop",
+								Tags: []string{"other"},
+							},
+						},
+					},
+				},
+			},
+		},
 	} {
 		fs := afero.Afero{Fs: afero.NewMemMapFs()}
 		repo := &git.Repository{
